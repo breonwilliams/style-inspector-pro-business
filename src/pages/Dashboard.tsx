@@ -1,39 +1,86 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Package, Download, Eye, TrendingUp } from 'lucide-react';
+import { Plus, Package, Download, Eye, TrendingUp, Search, Code, Bug } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 import { Button, Card, CardHeader, CardTitle, CardContent, Badge } from '../components/ui';
+import type { Extension } from '../types';
 
 export function Dashboard() {
-  const { profile, subscription } = useAuth();
+  const { user, profile, subscription, isDemoMode } = useAuth();
+  const [extensions, setExtensions] = useState<Extension[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Mock data for extensions
-  const extensions = [
+  // Demo data for Style Inspector Pro
+  const demoExtensions = [
     {
       id: '1',
-      name: 'Password Manager Pro',
-      description: 'Secure password management for Chrome',
+      user_id: 'demo-user-123',
+      name: 'CSS Inspector Pro',
+      description: 'Advanced CSS debugging and analysis tools',
+      icon_url: null,
+      download_url: null,
+      downloads_count: 15420,
       status: 'published' as const,
-      downloads: 1250,
-      created_at: '2024-01-15',
+      created_at: '2024-01-15T00:00:00Z',
+      updated_at: '2024-01-15T00:00:00Z',
     },
     {
       id: '2',
-      name: 'Tab Organizer',
-      description: 'Keep your tabs organized and productive',
+      user_id: 'demo-user-123',
+      name: 'Layout Analyzer Beta',
+      description: 'Visual layout debugging with flexbox and grid support',
+      icon_url: null,
+      download_url: null,
+      downloads_count: 0,
       status: 'draft' as const,
-      downloads: 0,
-      created_at: '2024-02-01',
+      created_at: '2024-02-01T00:00:00Z',
+      updated_at: '2024-02-01T00:00:00Z',
     },
     {
       id: '3',
-      name: 'Dark Mode Toggle',
-      description: 'Toggle dark mode on any website',
+      user_id: 'demo-user-123',
+      name: 'Style Conflict Detector',
+      description: 'Automatically detect and resolve CSS conflicts',
+      icon_url: null,
+      download_url: null,
+      downloads_count: 8750,
       status: 'published' as const,
-      downloads: 850,
-      created_at: '2024-01-28',
+      created_at: '2024-01-28T00:00:00Z',
+      updated_at: '2024-01-28T00:00:00Z',
     },
   ];
+
+  useEffect(() => {
+    if (isDemoMode) {
+      setExtensions(demoExtensions);
+      setLoading(false);
+    } else if (user) {
+      fetchUserExtensions();
+    }
+  }, [user, isDemoMode]);
+
+  const fetchUserExtensions = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('extensions')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching extensions:', error);
+      } else {
+        setExtensions(data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching extensions:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const stats = [
     {
@@ -44,7 +91,7 @@ export function Dashboard() {
     },
     {
       title: 'Total Downloads',
-      value: extensions.reduce((sum, ext) => sum + ext.downloads, 0),
+      value: extensions.reduce((sum, ext) => sum + ext.downloads_count, 0),
       icon: Download,
       color: 'text-green-500',
     },
@@ -84,7 +131,7 @@ export function Dashboard() {
             Welcome back, {profile?.full_name || 'User'}!
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mt-2">
-            Manage your Chrome extensions and track their performance.
+            Manage your CSS debugging tools and track their usage.
           </p>
         </div>
 
@@ -199,7 +246,7 @@ export function Dashboard() {
                         {extension.description}
                       </p>
                       <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500 dark:text-gray-400">
-                        <span>{extension.downloads} downloads</span>
+                        <span>{extension.downloads_count} downloads</span>
                         <span>Created {new Date(extension.created_at).toLocaleDateString()}</span>
                       </div>
                     </div>

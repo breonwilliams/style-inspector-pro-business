@@ -22,7 +22,7 @@ export interface Subscription {
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
   plan_name: 'free' | 'pro' | 'team';
-  status: 'active' | 'canceled' | 'past_due' | 'unpaid';
+  status: 'active' | 'canceled' | 'past_due' | 'unpaid' | 'trialing';
   current_period_start: string | null;
   current_period_end: string | null;
   created_at: string;
@@ -46,14 +46,19 @@ export interface AuthContextType {
   user: User | null;
   profile: Profile | null;
   subscription: Subscription | null;
+  session?: any;
   loading: boolean;
   isAdmin?: boolean;
+  isDemoMode?: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, fullName: string) => Promise<void>;
   signOut: () => Promise<void>;
   updateProfile: (data: Partial<Profile>) => Promise<void>;
+  refreshSubscription?: () => Promise<void>;
   demoLogin?: () => Promise<void>;
   adminSignIn?: (email: string, password: string) => Promise<void>;
+  enableDemoMode?: () => void;
+  disableDemoMode?: () => void;
 }
 
 export interface PricingPlan {

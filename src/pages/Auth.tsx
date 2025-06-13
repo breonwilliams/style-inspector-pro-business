@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Button, Input, Card, CardContent } from '../components/ui';
 
 export function Auth() {
-  const { user, signIn, signUp, demoLogin } = useAuth();
+  const { user, signIn, signUp, demoLogin, session } = useAuth();
+  const [searchParams] = useSearchParams();
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -15,8 +16,24 @@ export function Auth() {
     confirmPassword: '',
   });
 
-  // Redirect if already authenticated
-  if (user) {
+  // Check for extension authentication mode
+  const mode = searchParams.get('mode');
+  const state = searchParams.get('state');
+  const redirect = searchParams.get('redirect');
+  const isExtensionAuth = mode === 'extension';
+
+  // Handle extension authentication redirect
+  useEffect(() => {
+    if (isExtensionAuth && user && session) {
+      // Redirect to extension auth page with token
+      const redirectUrl = redirect || '/extension-auth';
+      const urlWithParams = `${redirectUrl}?mode=extension&state=${state}`;
+      window.location.href = urlWithParams;
+    }
+  }, [isExtensionAuth, user, session, redirect, state]);
+
+  // Redirect if already authenticated (non-extension mode)
+  if (user && !isExtensionAuth) {
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -103,7 +120,7 @@ export function Auth() {
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
           <div className="w-12 h-12 bg-primary-500 rounded-lg flex items-center justify-center mx-auto mb-4">
-            <span className="text-white font-bold text-lg">EP</span>
+            <span className="text-white font-bold text-lg">SIP</span>
           </div>
           <h2 className="text-3xl font-bold text-gray-900 dark:text-white">
             {isLogin ? 'Sign in to your account' : 'Create your account'}
@@ -122,7 +139,7 @@ export function Auth() {
         {/* Demo Banner */}
         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 text-center space-y-2">
           <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">
-            Demo Mode - Not connected to real database
+            Try Demo Mode - No signup required
           </p>
           <div>
             <a

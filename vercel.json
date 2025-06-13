@@ -1,0 +1,20 @@
+{
+  "functions": {
+    "api/stripe/create-checkout-session.ts": {
+      "runtime": "nodejs18.x"
+    },
+    "api/stripe/create-portal-session.ts": {
+      "runtime": "nodejs18.x"
+    }
+  },
+  "env": {
+    "VITE_SUPABASE_URL": "@vite_supabase_url",
+    "VITE_SUPABASE_ANON_KEY": "@vite_supabase_anon_key",
+    "VITE_STRIPE_PUBLISHABLE_KEY": "@vite_stripe_publishable_key",
+    "VITE_STRIPE_SECRET_KEY": "@vite_stripe_secret_key",
+    "VITE_STRIPE_PRICE_ID_PRO": "@vite_stripe_price_id_pro",
+    "VITE_STRIPE_PRICE_ID_TEAM": "@vite_stripe_price_id_team",
+    "STRIPE_WEBHOOK_SECRET": "@stripe_webhook_secret",
+    "VITE_APP_URL": "@vite_app_url"
+  }
+}

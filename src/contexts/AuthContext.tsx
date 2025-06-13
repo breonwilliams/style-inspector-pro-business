@@ -1,32 +1,34 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import type { User as SupabaseUser, Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
-import type { AuthContextType, User, Profile, Subscription } from '../types';
+import type { Profile, Subscription } from '../lib/supabase';
+import type { AuthContextType, User } from '../types';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Demo mode configuration
-const DEMO_MODE = true;
+// Demo mode configuration - can be toggled
+const DEMO_MODE = false;
 
 const demoUser: User = {
   id: 'demo-user-123',
-  email: 'demo@extensionpro.com',
+  email: 'demo@styleinspectorpro.com',
   created_at: '2024-01-01T00:00:00Z',
   updated_at: '2024-01-01T00:00:00Z'
 };
 
 const demoAdmin: User = {
   id: 'admin-user-456',
-  email: 'admin@extensionpro.com',
+  email: 'admin@styleinspectorpro.com',
   created_at: '2024-01-01T00:00:00Z',
   updated_at: '2024-01-01T00:00:00Z'
 };
 
 const demoProfile: Profile = {
   id: 'demo-user-123',
-  email: 'demo@extensionpro.com',
+  email: 'demo@styleinspectorpro.com',
   full_name: 'John Doe',
-  company: 'Demo Company',
-  bio: 'This is a demo account for testing purposes.',
+  company: 'Frontend Studio',
+  bio: 'Frontend developer passionate about CSS and web performance.',
   avatar_url: null,
   created_at: '2024-01-01T00:00:00Z',
   updated_at: '2024-01-01T00:00:00Z'
@@ -34,10 +36,10 @@ const demoProfile: Profile = {
 
 const demoAdminProfile: Profile = {
   id: 'admin-user-456',
-  email: 'admin@extensionpro.com',
+  email: 'admin@styleinspectorpro.com',
   full_name: 'Admin User',
-  company: 'ExtensionPro',
-  bio: 'Platform administrator',
+  company: 'Style Inspector Pro',
+  bio: 'Platform administrator for CSS debugging tools',
   avatar_url: null,
   created_at: '2024-01-01T00:00:00Z',
   updated_at: '2024-01-01T00:00:00Z'
@@ -60,28 +62,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isDemoMode, setIsDemoMode] = useState(DEMO_MODE);
 
   useEffect(() => {
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser({
-          id: session.user.id,
-          email: session.user.email!,
-          created_at: session.user.created_at,
-          updated_at: session.user.updated_at || session.user.created_at
-        });
-        loadUserData(session.user.id);
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.error('Error getting session:', error);
       } else {
-        setLoading(false);
-      }
-    });
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+        setSession(session);
         if (session?.user) {
           setUser({
             id: session.user.id,
@@ -89,11 +81,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             created_at: session.user.created_at,
             updated_at: session.user.updated_at || session.user.created_at
           });
-          await loadUserData(session.user.id);
+          loadUserData(session.user.id);
         } else {
+          setLoading(false);
+        }
+      }
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        setSession(session);
+        if (event === 'SIGNED_IN' && session?.user) {
+          setUser({
+            id: session.user.id,
+            email: session.user.email!,
+            created_at: session.user.created_at,
+            updated_at: session.user.updated_at || session.user.created_at
+          });
+          await loadUserData(session.user.id);
+        } else if (event === 'SIGNED_OUT') {
           setUser(null);
           setProfile(null);
           setSubscription(null);
+          setIsAdmin(false);
+          setIsDemoMode(false);
         }
         setLoading(false);
       }
@@ -105,24 +117,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const loadUserData = async (userId: string) => {
     try {
       // Load profile
-      const { data: profileData } = await supabase
+      const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .single();
 
-      if (profileData) {
+      if (profileError && profileError.code !== 'PGRST116') {
+        console.error('Error fetching profile:', profileError);
+      } else if (profileData) {
         setProfile(profileData);
       }
 
       // Load subscription
-      const { data: subscriptionData } = await supabase
+      const { data: subscriptionData, error: subscriptionError } = await supabase
         .from('subscriptions')
         .select('*')
         .eq('user_id', userId)
         .single();
 
-      if (subscriptionData) {
+      if (subscriptionError && subscriptionError.code !== 'PGRST116') {
+        console.error('Error fetching subscription:', subscriptionError);
+      } else if (subscriptionData) {
         setSubscription(subscriptionData);
       }
     } catch (error) {
@@ -132,18 +148,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Demo mode functions
+  const enableDemoMode = () => {
+    setIsDemoMode(true);
+    setUser(demoUser);
+    setProfile(demoProfile);
+    setSubscription(demoSubscription);
+    setIsAdmin(false);
+    setLoading(false);
+  };
+
+  const disableDemoMode = () => {
+    setIsDemoMode(false);
+    setUser(null);
+    setProfile(null);
+    setSubscription(null);
+    setIsAdmin(false);
+  };
+
   const demoLogin = async () => {
-    if (DEMO_MODE) {
-      setUser(demoUser);
-      setProfile(demoProfile);
-      setSubscription(demoSubscription);
-      setIsAdmin(false);
-      setLoading(false);
-    }
+    // First sign out any existing session
+    await supabase.auth.signOut();
+    // Then enable demo mode
+    enableDemoMode();
   };
 
   const adminSignIn = async (email: string, password: string) => {
-    if (DEMO_MODE && email === 'admin@extensionpro.com' && password === 'admin123') {
+    if (isDemoMode && email === 'admin@styleinspectorpro.com' && password === 'admin123') {
       setUser(demoAdmin);
       setProfile(demoAdminProfile);
       setSubscription(null);
@@ -155,10 +186,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signIn = async (email: string, password: string) => {
-    if (DEMO_MODE) {
-      throw new Error('Demo mode: Use "Demo Login" button instead');
-    }
-    
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -170,19 +197,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signUp = async (email: string, password: string, fullName: string) => {
-    if (DEMO_MODE) {
-      throw new Error('Demo mode: Use "Demo Login" button instead');
-    }
-    
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        data: {
+          full_name: fullName
+        }
+      }
     });
 
     if (error) {
       throw error;
     }
 
+    // Profile and subscription will be created automatically by database triggers
+    // or we can create them here if needed
     if (data.user) {
       // Create profile
       const { error: profileError } = await supabase
@@ -213,16 +243,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
-    if (DEMO_MODE) {
+    if (isDemoMode) {
+      // For demo mode, just disable demo mode
+      setIsDemoMode(false);
       setUser(null);
       setProfile(null);
       setSubscription(null);
-      return;
-    }
-    
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      throw error;
+      setIsAdmin(false);
+    } else {
+      // For real users, sign out from Supabase
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Error signing out:', error);
+        throw error;
+      }
     }
   };
 
@@ -231,7 +265,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error('No user logged in');
     }
 
-    if (DEMO_MODE) {
+    if (isDemoMode) {
       // Update demo profile in memory
       setProfile(prev => prev ? { ...prev, ...data, updated_at: new Date().toISOString() } : null);
       return;
@@ -249,24 +283,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw error;
     }
 
-    // Reload profile data
-    await loadUserData(user.id);
+    // Update local state
+    setProfile(prev => prev ? { ...prev, ...data, updated_at: new Date().toISOString() } : null);
+  };
+
+  const refreshSubscription = async () => {
+    if (!user || isDemoMode) return;
+
+    try {
+      const { data: subscriptionData, error } = await supabase
+        .from('subscriptions')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching subscription:', error);
+      } else if (subscriptionData) {
+        setSubscription(subscriptionData);
+      }
+    } catch (error) {
+      console.error('Error refreshing subscription:', error);
+    }
   };
 
   return (
     <AuthContext.Provider
       value={{
-        user,
-        profile,
-        subscription,
+        user: isDemoMode ? demoUser : user,
+        profile: isDemoMode ? demoProfile : profile,
+        subscription: isDemoMode ? demoSubscription : subscription,
+        session: isDemoMode ? null : session,
         loading,
         isAdmin,
+        isDemoMode,
         signIn,
         signUp,
         signOut,
         updateProfile,
+        refreshSubscription,
         demoLogin,
         adminSignIn,
+        enableDemoMode,
+        disableDemoMode,
       }}
     >
       {children}

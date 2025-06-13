@@ -9,7 +9,9 @@ import { AdminLayout } from './components/admin/AdminLayout';
 import { Home } from './pages/Home';
 import { Auth } from './pages/Auth';
 import { Dashboard } from './pages/Dashboard';
+import { UserDashboard } from './pages/UserDashboard';
 import { Settings } from './pages/Settings';
+import { ExtensionAuth } from './pages/ExtensionAuth';
 import { AdminLogin } from './pages/admin/AdminLogin';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { NotFound } from './pages/NotFound';
@@ -18,15 +20,27 @@ function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <Router>
+        <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <div className="min-h-screen bg-white dark:bg-gray-900">
             <Routes>
               {/* User Routes with Header */}
               <Route path="/" element={<><Header /><Home /></>} />
               <Route path="/auth" element={<><Header /><Auth /></>} />
+              <Route path="/extension-auth" element={<ExtensionAuth />} />
               <Route path="/pricing" element={<><Header /><Home /></>} />
               <Route
                 path="/dashboard"
+                element={
+                  <>
+                    <Header />
+                    <ProtectedRoute>
+                      <UserDashboard />
+                    </ProtectedRoute>
+                  </>
+                }
+              />
+              <Route
+                path="/creator-dashboard"
                 element={
                   <>
                     <Header />

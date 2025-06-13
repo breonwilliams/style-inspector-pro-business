@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Button, Input, Card, CardHeader, CardTitle, CardContent, Badge } from '../components/ui';
 import { User, CreditCard, Shield, Bell, Trash2 } from 'lucide-react';
+import { redirectToCustomerPortal, getPlanDisplayName, formatPrice } from '../lib/stripe';
 
 export function Settings() {
-  const { profile, subscription, updateProfile } = useAuth();
+  const { profile, subscription, updateProfile, isDemoMode } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [billingLoading, setBillingLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [formData, setFormData] = useState({
     full_name: profile?.full_name || '',
@@ -35,6 +37,32 @@ export function Settings() {
     }
   };
 
+  const handleManageBilling = async () => {
+    if (isDemoMode) {
+      alert('Demo mode: Billing management is not available in demo mode. Please create a real account to manage billing.');
+      return;
+    }
+
+    if (!subscription?.stripe_customer_id) {
+      alert('No billing information found. Please contact support.');
+      return;
+    }
+
+    setBillingLoading(true);
+
+    try {
+      await redirectToCustomerPortal({
+        customerId: subscription.stripe_customer_id,
+        returnUrl: `${window.location.origin}/settings`,
+      });
+    } catch (error) {
+      console.error('Error redirecting to billing portal:', error);
+      alert('Failed to open billing portal. Please try again.');
+    } finally {
+      setBillingLoading(false);
+    }
+  };
+
   const getSubscriptionStatusBadge = (status: string) => {
     switch (status) {
       case 'active':
@@ -45,6 +73,17 @@ export function Settings() {
         return <Badge variant="danger">Past Due</Badge>;
       default:
         return <Badge>{status}</Badge>;
+    }
+  };
+
+  const getPlanPrice = (planName: string) => {
+    switch (planName) {
+      case 'pro':
+        return '$9/month';
+      case 'team':
+        return '$29/month';
+      default:
+        return 'Free';
     }
   };
 
@@ -138,19 +177,30 @@ export function Settings() {
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="font-medium text-gray-900 dark:text-white">
-                        Current Plan: {subscription.plan_name.charAt(0).toUpperCase() + subscription.plan_name.slice(1)}
+                        Current Plan: {getPlanDisplayName(subscription.plan_name)} ({getPlanPrice(subscription.plan_name)})
                       </h3>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
                         Status: {getSubscriptionStatusBadge(subscription.status)}
                       </p>
                     </div>
-                    <div className="space-x-2">
+                    <div className="flex space-x-2">
                       {subscription.plan_name === 'free' ? (
-                        <Button>Upgrade Plan</Button>
+                        <Button onClick={() => window.location.href = '/#pricing'}>
+                          Upgrade Plan
+                        </Button>
                       ) : (
                         <>
-                          <Button variant="secondary">Manage Billing</Button>
-                          <Button>Change Plan</Button>
+                          <Button 
+                            variant="secondary" 
+                            loading={billingLoading}
+                            onClick={handleManageBilling}
+                            disabled={isDemoMode}
+                          >
+                            Manage Billing
+                          </Button>
+                          <Button onClick={() => window.location.href = '/#pricing'}>
+                            Change Plan
+                          </Button>
                         </>
                       )}
                     </div>
